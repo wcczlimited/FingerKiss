@@ -1,10 +1,12 @@
 package com.weicheng.fingerkiss.NetUtil;
 
-import java.io.IOException;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.Message;
+
+import com.weicheng.fingerkiss.MainActivity;
+
 import java.net.InetSocketAddress;
-import java.net.Socket;
-import java.net.SocketAddress;
-import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
@@ -20,14 +22,23 @@ public class MySocket extends Thread{
     private InetSocketAddress inetSocketAddress;
     private SocketChannel socketChannel;
     private static MySocket gMySocket;
-    private static SurfaceUtil mSurfaceUtil;
+    private Handler handler;
     private MySocket(){
         inetSocketAddress = new InetSocketAddress("58.196.155.190", 8989);
-        mSurfaceUtil = SurfaceUtil.instance();
     }
     public static synchronized MySocket instance(){
-        if(gMySocket == null)
-            gMySocket = new MySocket();
+            return gMySocket;
+    }
+    public static synchronized MySocket instance(Handler handler){
+        if(gMySocket == null) {
+            try {
+                gMySocket = new MySocket();
+                gMySocket.handler = handler;
+            }
+            catch(Exception e){
+                e.printStackTrace();
+            }
+        }
         return gMySocket;
     }
 
@@ -79,9 +90,16 @@ public class MySocket extends Thread{
                     String data = new String(byteBuffer.array(), 0, readBytes);
                     log.info("From Server: data = " + data);
                     String[] array = data.split(" ");
-                    int x = (int)Float.parseFloat(array[0]);
-                    int y = (int)Float.parseFloat(array[1]);
-                    mSurfaceUtil.DrawBitmap(x+200,y+200);
+                    int op = Integer.parseInt(array[0]);
+                    int x = (int)Float.parseFloat(array[1]);
+                    int y = (int)Float.parseFloat(array[2]);
+                    Message msg = new Message();
+                    Bundle bundle = new Bundle();
+                    bundle.putInt("x",x);
+                    bundle.putInt("y",y);
+                    msg.what = op;
+                    msg.setData(bundle);
+                    handler.sendMessage(msg);
                 }
             }
         }catch(Exception e){
