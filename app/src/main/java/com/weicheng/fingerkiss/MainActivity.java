@@ -20,6 +20,7 @@ import android.view.View;
 import android.widget.Toast;
 
 import com.weicheng.fingerkiss.NetUtil.MySocket;
+import com.weicheng.fingerkiss.NetUtil.SurfaceUtil;
 
 import java.net.Socket;
 
@@ -30,15 +31,14 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
     private SurfaceHolder mSurfaceHolder;   //surfaceView的 控制器
     private Paint paint;
     private boolean canTouch;//能不能绘制点
-    Bitmap icon;
-    int icon_width, icon_height;
-    MySocket socket;
+    private Bitmap icon;
+    private int icon_width, icon_height;
+    private MySocket socket;
+    private SurfaceUtil gSurfaceUtil;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        socket = new MySocket();
-        new Thread(socket).start();
 
         canTouch = true;
         //设置canvas上绘制用的图案
@@ -79,6 +79,10 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
             public void surfaceDestroyed(SurfaceHolder holder) {
             }
         });// 自动运行surfaceCreated以及surfaceChanged
+        //设置SurfaceUtil
+        gSurfaceUtil = SurfaceUtil.instance(mSurfaceView,icon);
+        socket = MySocket.instance();
+        socket.start();
     }
     //手动调用onTouchEvent，以防GestureOverlayView截获之后不返回
     @Override
@@ -89,6 +93,7 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
     //更新每个点的轨迹
     @Override
     public boolean onTouchEvent(MotionEvent event) {
+        socket.sendMsg(+event.getRawX()+" "+event.getRawY());
         int cx = (int) event.getX();
         int cy = (int) event.getY();
         if(canTouch==false)
@@ -102,7 +107,6 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
             canvas.drawColor(Color.WHITE);
             paint.setColor(Color.CYAN);
             paint.setAntiAlias(true);
-
             canvas.drawBitmap(icon,cx-icon_width/2,cy-icon_height/2,paint);
             mSurfaceHolder.unlockCanvasAndPost(canvas);
         }
