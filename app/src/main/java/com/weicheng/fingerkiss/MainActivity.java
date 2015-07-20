@@ -43,6 +43,7 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
     public static final int USERINFO = 2;
     private String myUsername;
     private String otherUsername;
+    private int gx = 0,gy = 0;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -109,6 +110,9 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
                     int x = msg.getData().getInt("x");
                     int y = msg.getData().getInt("y");
                     mFingerViewUtil.drawBitmap(x,y);
+                    if(Math.abs(gx-x)<=10 || Math.abs(gy-y)<=10){
+                        VibratorUtil.Vibrate(MainActivity.this,200);
+                    }
                     break;
                 case DISAPPEAR:
                     System.out.println("disapper other finger");
@@ -156,9 +160,11 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
         else{
             //此处描绘点的移动
             socket.sendMsg(DRAW+" "+event.getRawX()+" "+event.getRawY());
-            myfingerView.setX(cx-icon_width/2);
+            myfingerView.setX(cx - icon_width / 2);
             myfingerView.setY(cy - icon_height / 2);
             myfingerView.setVisibility(View.VISIBLE);
+            gx = cx;
+            gy = cy;
         }
         return super.onTouchEvent(event);
     }
