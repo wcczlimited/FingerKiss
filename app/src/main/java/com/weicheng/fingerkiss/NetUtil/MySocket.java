@@ -89,17 +89,29 @@ public class MySocket extends Thread{
                     byteBuffer.flip();
                     String data = new String(byteBuffer.array(), 0, readBytes);
                     log.info("From Server: data = " + data);
-                    String[] array = data.split(" ");
-                    int op = Integer.parseInt(array[0]);
-                    int x = (int)Float.parseFloat(array[1]);
-                    int y = (int)Float.parseFloat(array[2]);
-                    Message msg = new Message();
-                    Bundle bundle = new Bundle();
-                    bundle.putInt("x",x);
-                    bundle.putInt("y",y);
-                    msg.what = op;
-                    msg.setData(bundle);
-                    handler.sendMessage(msg);
+                    String[] array = data.split("<");
+                    for(int i=1;i<array.length;++i){
+                        try {
+                            String[] itemArray = array[i].split(" ");
+                            if(itemArray.length!=3)break;
+                            int op = Integer.parseInt(itemArray[0]);
+                            int x = (int)Float.parseFloat(itemArray[1]);
+                            int y = (int)Float.parseFloat(itemArray[2]);
+                            Message msg = new Message();
+                            Bundle bundle = new Bundle();
+                            bundle.putInt("x",x);
+                            bundle.putInt("y",y);
+                            msg.what = op;
+                            msg.setData(bundle);
+                            handler.sendMessage(msg);
+                            if(op==1)
+                                break;
+                        }catch (Exception e){
+                            e.printStackTrace();
+                        }
+
+                    }
+
                 }
             }
         }catch(Exception e){

@@ -2,7 +2,13 @@ package com.weicheng.fingerkiss;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
+import android.content.ComponentName;
 import android.content.DialogInterface;
+import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.gesture.Gesture;
 import android.gesture.GestureOverlayView;
 import android.gesture.GestureOverlayView.OnGesturePerformedListener;
@@ -13,6 +19,7 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.view.KeyEvent;
 import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
@@ -44,6 +51,8 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
     private String myUsername;
     private String otherUsername;
     private int gx = 0,gy = 0;
+    private int gox = 0, goy = 0;
+    private long lastSendTime = 0;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -109,13 +118,15 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
                 case DRAW:
                     int x = msg.getData().getInt("x");
                     int y = msg.getData().getInt("y");
+                    gox = x;goy = y;
                     mFingerViewUtil.drawBitmap(x,y);
-                    if(Math.abs(gx-x)<=10 || Math.abs(gy-y)<=10){
+                    if((Math.abs(gx-x)<=10 || Math.abs(gy-y)<=10) && (gx!=0 && gy!=0)){
                         VibratorUtil.Vibrate(MainActivity.this,200);
                     }
                     break;
                 case DISAPPEAR:
                     System.out.println("disapper other finger");
+                    gx = 0;gy = 0;goy = 0;gox = 0;
                     mFingerViewUtil.disappearBitmap();
                     break;
             }
@@ -152,19 +163,28 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
         if(canTouch==false)
             return true;
         if(event.getActionMasked() == MotionEvent.ACTION_UP){
-            socket.sendMsg(DISAPPEAR+" "+event.getRawX()+" "+event.getRawY());
+            socket.sendMsg("<"+DISAPPEAR+" "+event.getRawX()+" "+event.getRawY());
             canTouch = false;
             myfingerView.setVisibility(View.INVISIBLE);
             canTouch = true;
         }
         else{
             //此处描绘点的移动
-            socket.sendMsg(DRAW+" "+event.getRawX()+" "+event.getRawY());
+            //if(Math.abs(gx-cx)>=15 || Math.abs(gy-cy)>=15 || (gx ==0 && gy==0)) {
+            long nowTime = System.currentTimeMillis();
+            if(nowTime - lastSendTime > 10) {
+                socket.sendMsg("<" + DRAW + " " + event.getRawX() + " " + event.getRawY());
+                lastSendTime = nowTime;
+            }
             myfingerView.setX(cx - icon_width / 2);
             myfingerView.setY(cy - icon_height / 2);
             myfingerView.setVisibility(View.VISIBLE);
             gx = cx;
             gy = cy;
+            if ((Math.abs(gox - cx) <= 10 || Math.abs(goy - cy) <= 10) && (gox != 0 && goy != 0)) {
+                VibratorUtil.Vibrate(MainActivity.this, 200);
+            }
+
         }
         return super.onTouchEvent(event);
     }
@@ -175,8 +195,8 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
     }
     @Override
     public void onGesturePerformed(GestureOverlayView overlay, Gesture gesture) {
-        socket.sendMsg(DISAPPEAR+" 0 0");
-        showMessage("手势绘制完成");
+        socket.sendMsg("<" + DISAPPEAR + " 0 0");
+        //showMessage("手势绘制完成");
     }
 
     @Override
@@ -196,6 +216,7 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
         //移除绑定的监听器
         mDrawGestureView.removeOnGesturePerformedListener(this);
         mDrawGestureView.removeOnGesturingListener(this);
+        System.out.println("on destroy");
     }
 
     private class CircleDisappear implements Runnable {
@@ -208,6 +229,33 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
         @Override
         public void run() {
 
+        }
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        PackageManager pm = getPackageManager();
+        ResolveInfo homeInfo = pm.resolveActivity(
+                new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0);
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            ActivityInfo ai = homeInfo.activityInfo;
+            Intent startIntent = new Intent(Intent.ACTION_MAIN);
+            startIntent.addCategory(Intent.CATEGORY_LAUNCHER);
+            startIntent.setComponent(new ComponentName(ai.packageName, ai.name));
+            startActivitySafely(startIntent);
+            return true;
+        } else
+            return super.onKeyDown(keyCode, event);
+    }
+
+    private void startActivitySafely(Intent intent) {
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "null", Toast.LENGTH_SHORT).show();
+        } catch (SecurityException e) {
+            Toast.makeText(this, "null", Toast.LENGTH_SHORT).show();
         }
     }
 }
