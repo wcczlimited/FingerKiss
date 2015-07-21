@@ -48,8 +48,8 @@ public class MainActivity extends Activity implements OnGesturePerformedListener
     public static final int DRAW = 0;
     public static final int DISAPPEAR = 1;
     public static final int USERINFO = 2;
-    private String myUsername;
-    private String otherUsername;
+    public static String myUsername;
+    public static String otherUsername;
     private int gx = 0,gy = 0;
     private int gox = 0, goy = 0;
     private long lastSendTime = 0;
