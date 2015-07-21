@@ -48,7 +48,10 @@ public class MySocket extends Thread{
         @Override
         public void run() {
             try {
-                socketChannel.write(ByteBuffer.wrap(msg.getBytes()));
+                if(socketChannel.isConnected())
+                    socketChannel.write(ByteBuffer.wrap(msg.getBytes()));
+                else
+                    return;
             }
             catch(Exception e){
                 e.printStackTrace();
@@ -58,18 +61,49 @@ public class MySocket extends Thread{
     public void sendMsg(String msg){
         new Thread(new SendMsgThread(msg)).start();
     }
-    @Override
-    public void run() {
-        System.out.println("Client: Start");
+
+    private void reconnect(){
         try {
-            mSelector = Selector.open();
+            socketChannel.close();
             socketChannel = SocketChannel.open();
             socketChannel.socket().setSoTimeout(10000);
             boolean isconnect = socketChannel.connect(inetSocketAddress);
+            while (!socketChannel.isConnected()){
+            }
             // 将客户端设定为异步
             socketChannel.configureBlocking(false);
             // 在轮讯对象中注册此客户端的读取事件(就是当服务器向此客户端发送数据的时候)
             socketChannel.register(mSelector, SelectionKey.OP_READ);
+            sendMsg(MainActivity.USERINFO + " " + MainActivity.myUsername + " " + MainActivity.otherUsername);
+        }catch (Exception e){
+            e.printStackTrace();
+            reconnect();
+            return;
+        }
+    }
+
+    private boolean connect(){
+        boolean isconnect = false;
+        try {
+            mSelector = Selector.open();
+            socketChannel = SocketChannel.open();
+            socketChannel.socket().setSoTimeout(10000);
+            isconnect = socketChannel.connect(inetSocketAddress);
+            // 将客户端设定为异步
+            socketChannel.configureBlocking(false);
+            // 在轮讯对象中注册此客户端的读取事件(就是当服务器向此客户端发送数据的时候)
+            socketChannel.register(mSelector, SelectionKey.OP_READ);
+        }catch (Exception e){
+            e.printStackTrace();
+            reconnect();
+        }
+        return isconnect;
+    }
+    @Override
+    public void run() {
+        System.out.println("Client: Start");
+        try {
+            boolean isconnect = connect();
             long waittimes = 0;
             if(!isconnect) {
                 while (!socketChannel.finishConnect()) {
@@ -84,40 +118,46 @@ public class MySocket extends Thread{
             ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
             while (true) {
                 byteBuffer.clear();
-                int readBytes = socketChannel.read(byteBuffer);
-                if (readBytes > 0) {
-                    byteBuffer.flip();
-                    String data = new String(byteBuffer.array(), 0, readBytes);
-                    log.info("From Server: data = " + data);
-                    String[] array = data.split("<");
-                    for(int i=1;i<array.length;++i){
-                        try {
-                            String[] itemArray = array[i].split(" ");
-                            if(itemArray.length!=3)break;
-                            int op = Integer.parseInt(itemArray[0]);
-                            int x = (int)Float.parseFloat(itemArray[1]);
-                            int y = (int)Float.parseFloat(itemArray[2]);
-                            Message msg = new Message();
-                            Bundle bundle = new Bundle();
-                            bundle.putInt("x",x);
-                            bundle.putInt("y",y);
-                            msg.what = op;
-                            msg.setData(bundle);
-                            handler.sendMessage(msg);
-                            if(op==1)
-                                break;
-                        }catch (Exception e){
-                            e.printStackTrace();
+                try {
+                    int readBytes = socketChannel.read(byteBuffer);
+                    if (readBytes > 0) {
+                        byteBuffer.flip();
+                        String data = new String(byteBuffer.array(), 0, readBytes);
+                        log.info("From Server: data = " + data);
+                        String[] array = data.split("<");
+                        for (int i = 1; i < array.length; ++i) {
+                            try {
+                                String[] itemArray = array[i].split(" ");
+                                if (itemArray.length != 3) break;
+                                int op = Integer.parseInt(itemArray[0]);
+                                int x = (int) Float.parseFloat(itemArray[1]);
+                                int y = (int) Float.parseFloat(itemArray[2]);
+                                Message msg = new Message();
+                                Bundle bundle = new Bundle();
+                                bundle.putInt("x", x);
+                                bundle.putInt("y", y);
+                                msg.what = op;
+                                msg.setData(bundle);
+                                handler.sendMessage(msg);
+                                if (op == 1)
+                                    break;
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                            }
                         }
-
                     }
-
+                }catch (Exception e){
+                    e.printStackTrace();
+                    System.out.println("While Exception");
+                    reconnect();
+                    continue;
                 }
             }
         }catch(Exception e){
             e.printStackTrace();
         }finally {
             try {
+                System.out.println("finally");
                 socketChannel.close();
             }
             catch(Exception e){
